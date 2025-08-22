@@ -1,0 +1,18 @@
+PS C:\projectFlutter\qr_link_app> flutterfire configure --project=qr-app-8f2fb
+i Found 2 Firebase projects. Selecting project qr-app-8f2fb.
+✔ Which platforms should your configuration support (use arrow keys & space to select)? · android, ios, web
+i Firebase android app com.example.qr_link_app is not registered on Firebase project qr-app-8f2fb.
+i Registered a new Firebase android app on Firebase project qr-app-8f2fb.
+i Firebase ios app com.example.qrLinkApp is not registered on Firebase project qr-app-8f2fb.
+i Registered a new Firebase ios app on Firebase project qr-app-8f2fb.
+i Firebase web app qr_link_app (web) registered.
+
+Firebase configuration file lib\firebase_options.dart generated successfully with the following Firebase apps:
+
+Platform  Firebase App Id
+web       1:383989358861:web:c4920923d7a9f43bb3d044
+android   1:383989358861:android:1d67530d9a3d265cb3d044
+ios       1:383989358861:ios:6b72f2091798a778b3d044
+
+Learn more about using this file and next steps from the documentation:
+ > https://firebase.google.com/docs/flutter/setup
