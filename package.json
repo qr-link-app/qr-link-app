@@ -1,5 +1,5 @@
 {
-  "name": "qr-app-functions",
+  "name": "qr-link-app-backend",
   "version": "1.0.0",
   "dependencies": {
     "firebase-admin": "^11.5.0"
