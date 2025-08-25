@@ -16,8 +16,8 @@ class _AuthPageState extends State<AuthPage> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool isLogin = true;
-  bool _isPasswordVisible = false; // State untuk password
-  bool _isConfirmPasswordVisible = false; // State untuk konfirmasi password
+  bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
 
   @override
   void dispose() {
@@ -115,7 +115,7 @@ class _AuthPageState extends State<AuthPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.purple,
+      backgroundColor: Colors.white,
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(32.0),
@@ -130,7 +130,7 @@ class _AuthPageState extends State<AuthPage> {
                   style: const TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: Colors.purple,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -221,7 +221,7 @@ class _AuthPageState extends State<AuthPage> {
                           decoration: InputDecoration(
                             labelText: 'Konfirmasi Password',
                             prefixIcon: const Icon(
-                              Icons.lock,
+                              Icons.lock_open,
                               color: Colors.purple,
                             ),
                             suffixIcon: IconButton(
@@ -300,7 +300,7 @@ class _AuthPageState extends State<AuthPage> {
                 const SizedBox(height: 40),
                 const Text(
                   'Atau login dengan',
-                  style: TextStyle(color: Colors.white),
+                  style: TextStyle(color: Colors.black54),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),

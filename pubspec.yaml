@@ -40,6 +40,9 @@ dependencies:
   flutter_facebook_auth: ^6.0.0
   cloud_firestore: ^5.0.0
   font_awesome_flutter: ^10.7.0
+  path_provider: ^2.1.2
+  share_plus: ^7.2.2
+  intl: ^0.19.0 # Tambahkan baris ini
 
 dev_dependencies:
   flutter_test:
@@ -61,6 +64,8 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  assets:
+    - assets/images/qr_logo.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

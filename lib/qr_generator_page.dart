@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import 'qr_converter_page.dart';
 import 'qr_scanner_page.dart';
+import 'qr_detail_page.dart';
 
 class QrGeneratorPage extends StatefulWidget {
   const QrGeneratorPage({super.key});
@@ -13,7 +15,8 @@ class QrGeneratorPage extends StatefulWidget {
 
 class _QrGeneratorPageState extends State<QrGeneratorPage> {
   bool _isFabOpen = false;
-  String _currentFilter = 'all'; // 'all', 'generate', 'scan'
+  String _currentFilter = 'generate';
+  final GlobalKey _qrKey = GlobalKey();
 
   void _toggleFab() {
     setState(() {
@@ -25,55 +28,85 @@ class _QrGeneratorPageState extends State<QrGeneratorPage> {
     setState(() {
       _currentFilter = filter;
     });
-    Navigator.of(context).pop(); // Tutup drawer setelah filter dipilih
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
   }
 
-  Stream<QuerySnapshot> _fetchActivities() {
+  Stream<List<dynamic>> _fetchActivities() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       return const Stream.empty();
     }
 
-    // Logika untuk mengambil data dari Firestore berdasarkan filter
     if (_currentFilter == 'generate') {
       return FirebaseFirestore.instance
           .collection('qr_codes')
           .where('ownerId', isEqualTo: user.uid)
           .orderBy('createdAt', descending: true)
-          .snapshots();
-    } else if (_currentFilter == 'scan') {
+          .snapshots()
+          .map(
+            (snapshot) => snapshot.docs
+                .map(
+                  (doc) => {
+                    ...doc.data(),
+                    'id': doc.id,
+                    'type': 'generate',
+                    'dynamicLink':
+                        'https://qr-link-id.netlify.app/.netlify/functions/redirect?id=${doc.id}',
+                  },
+                )
+                .toList(),
+          );
+    } else {
+      // 'scan'
       return FirebaseFirestore.instance
           .collection('scan_history')
           .where('userId', isEqualTo: user.uid)
           .orderBy('scannedAt', descending: true)
-          .snapshots();
-    } else {
-      // 'all'
-      // Menggabungkan stream dari dua koleksi berbeda
-      final generatedStream = FirebaseFirestore.instance
-          .collection('qr_codes')
-          .where('ownerId', isEqualTo: user.uid)
-          .orderBy('createdAt', descending: true)
-          .limit(10) // Batasi untuk efisiensi
-          .snapshots();
-
-      final scannedStream = FirebaseFirestore.instance
-          .collection('scan_history')
-          .where('userId', isEqualTo: user.uid)
-          .orderBy('scannedAt', descending: true)
-          .limit(10) // Batasi untuk efisiensi
-          .snapshots();
-
-      return Stream.multi((controller) {
-        generatedStream.listen(
-          (snapshot) => controller.add(snapshot),
-          onDone: () => scannedStream.listen(
-            (snapshot) => controller.add(snapshot),
-            onDone: () => controller.close(),
-          ),
-        );
-      });
+          .snapshots()
+          .map(
+            (snapshot) => snapshot.docs
+                .map((doc) => {...doc.data(), 'id': doc.id, 'type': 'scan'})
+                .toList(),
+          );
     }
+  }
+
+  Future<void> _deactivateQrCode(String docId, bool isActive) async {
+    await FirebaseFirestore.instance.collection('qr_codes').doc(docId).update({
+      'isActive': !isActive,
+    });
+  }
+
+  Future<void> _deleteQrCode(String docId) async {
+    await FirebaseFirestore.instance.collection('qr_codes').doc(docId).delete();
+  }
+
+  Future<void> _deleteScannedQr(String docId) async {
+    await FirebaseFirestore.instance
+        .collection('scan_history')
+        .doc(docId)
+        .delete();
+  }
+
+  void _showActivityDetails(BuildContext context, dynamic data) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => QrDetailPage(
+          data: data,
+          qrKey: _qrKey,
+          onDelete: (id) {
+            if (data['type'] == 'scan') {
+              _deleteScannedQr(id);
+            } else {
+              _deleteQrCode(id);
+            }
+          },
+          onDeactivate: _deactivateQrCode,
+        ),
+      ),
+    );
   }
 
   @override
@@ -101,12 +134,6 @@ class _QrGeneratorPageState extends State<QrGeneratorPage> {
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.history),
-              title: const Text('Semua Aktivitas'),
-              onTap: () => _setFilter('all'),
-              selected: _currentFilter == 'all',
-            ),
-            ListTile(
               leading: const Icon(Icons.qr_code_2),
               title: const Text('QR Dibuat'),
               onTap: () => _setFilter('generate'),
@@ -124,13 +151,15 @@ class _QrGeneratorPageState extends State<QrGeneratorPage> {
               title: const Text('Logout'),
               onTap: () async {
                 await FirebaseAuth.instance.signOut();
-                Navigator.of(context).pop();
+                if (mounted) {
+                  Navigator.of(context).pop();
+                }
               },
             ),
           ],
         ),
       ),
-      body: StreamBuilder<QuerySnapshot>(
+      body: StreamBuilder<List<dynamic>>(
         stream: _fetchActivities(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -139,29 +168,47 @@ class _QrGeneratorPageState extends State<QrGeneratorPage> {
           if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
           }
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text('Tidak ada riwayat aktivitas.'));
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return Center(
+              child: Text(
+                'Tidak ada riwayat ${_currentFilter == 'generate' ? 'QR Dibuat' : 'QR Dipindai'}.',
+              ),
+            );
           }
-
-          final activities = snapshot.data!.docs;
-
+          final activities = snapshot.data!;
           return ListView.builder(
             itemCount: activities.length,
             itemBuilder: (context, index) {
-              final doc = activities[index];
-              final data = doc.data() as Map<String, dynamic>;
-              final isScan = data.containsKey('scannedData');
-              final title = isScan
-                  ? 'Dipindai: ${data['scannedData']}'
-                  : 'Dibuat: ${data['originalLink']}';
-              final subtitle = isScan
-                  ? 'Pukul: ${data['scannedAt']?.toDate().toString()}'
-                  : 'Dibuat: ${data['createdAt']?.toDate().toString()}';
+              final data = activities[index];
+              final isScan = data['type'] == 'scan';
+              final title = isScan ? data['scannedData'] : data['originalLink'];
+              final timestamp =
+                  (isScan ? data['scannedAt'] : data['createdAt'])
+                      as Timestamp?;
+              final formattedDate = timestamp != null
+                  ? DateFormat('dd MMM yyyy, HH:mm').format(timestamp.toDate())
+                  : 'Tanggal tidak tersedia';
 
-              return ListTile(
-                leading: Icon(isScan ? Icons.qr_code_scanner : Icons.qr_code_2),
-                title: Text(title),
-                subtitle: Text(subtitle),
+              return Card(
+                elevation: 4,
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: ListTile(
+                  leading: Icon(
+                    isScan ? Icons.qr_code_scanner : Icons.qr_code_2,
+                    color: isScan ? Colors.purple : Colors.red,
+                  ),
+                  title: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    '${isScan ? 'Dipindai' : 'Dibuat'} pada $formattedDate',
+                  ),
+                  onTap: () => _showActivityDetails(context, data),
+                  trailing: const Icon(Icons.arrow_forward_ios),
+                ),
               );
             },
           );
